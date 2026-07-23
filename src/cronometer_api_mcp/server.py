@@ -6,6 +6,7 @@ import os
 from datetime import date, timedelta
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from .client import CronometerClient
 
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 mcp = FastMCP(
     "cronometer",
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
     instructions=(
         "Cronometer MCP server for nutrition tracking via the mobile REST API. "
         "Provides access to food search, diary management, daily nutrition data, "

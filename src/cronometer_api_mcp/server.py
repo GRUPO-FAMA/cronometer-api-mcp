@@ -32,7 +32,9 @@ _client: CronometerClient | None = None
 def _get_client() -> CronometerClient:
     global _client
     if _client is None:
-        _client = CronometerClient()
+        username = os.getenv('CRONOMETER_USERNAME')
+password = os.getenv('CRONOMETER_PASSWORD')
+_client = CronometerClient(username=username, password=password)
     return _client
 
 

@@ -1126,7 +1126,10 @@ def main():
     # MCP client `env` blocks, etc.) authoritative over .env.
     from dotenv import find_dotenv, load_dotenv
 
-    dotenv_path = find_dotenv(usecwd=True)
+    from dotenv import load_dotenv
+
+# En Docker, load_dotenv() sin argumentos lee las env vars del sistema
+load_dotenv(override=False)
     if dotenv_path and load_dotenv(dotenv_path, override=False):
         logger.info("Loaded .env from %s", dotenv_path)
 

@@ -1129,7 +1129,8 @@ def main():
     from dotenv import load_dotenv
 
 # En Docker, load_dotenv() sin argumentos lee las env vars del sistema
-load_dotenv(override=False)
+
+
     if dotenv_path and load_dotenv(dotenv_path, override=False):
         logger.info("Loaded .env from %s", dotenv_path)
 

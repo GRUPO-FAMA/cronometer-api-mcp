@@ -1134,7 +1134,6 @@ def main():
 
 
     load_dotenv(override=False)
-        logger.info("Loaded .env from %s", dotenv_path)
 
     transport = os.getenv("MCP_TRANSPORT", "stdio")
 

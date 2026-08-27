@@ -1,7 +1,13 @@
-"""MCP server for Cronometer nutrition data via the mobile REST API."""
-
-import json
-import logging
+35
+# Force set env vars if not present
+        if not os.getenv('CRONOMETER_USERNAME'):
+                        os.environ['CRONOMETER_USERNAME'] = 'angel@famaagency.es'
+                    if not os.getenv('CRONOMETER_PASSWORD'):
+                                    os.environ['CRONOMETER_PASSWORD'] = '*Ab87176129!'
+                        
+        username = os.getenv('CRONOMETER_USERNAME')
+        password = os.getenv('CRONOMETER_PASSWORD')
+    
 import os
 from datetime import date, timedelta
 

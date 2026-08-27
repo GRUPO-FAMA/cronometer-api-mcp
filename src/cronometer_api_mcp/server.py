@@ -35,7 +35,7 @@ def _get_client() -> CronometerClient:
         username = os.getenv('CRONOMETER_USERNAME')
 password = os.getenv('CRONOMETER_PASSWORD')
 _client = CronometerClient(username=username, password=password)
-    return _client
+return _client
 
 
 def _parse_date(d: str | None) -> date | None:

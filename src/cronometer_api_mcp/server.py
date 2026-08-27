@@ -34,6 +34,7 @@ def _get_client() -> CronometerClient:
     if _client is None:
         username = os.getenv('CRONOMETER_USERNAME')
         password = os.getenv('CRONOMETER_PASSWORD')
+        logger.info(f"Cronometer auth - user: {username is not None}, pass: {password is not None}")
         _client = CronometerClient(username=username, password=password)
     return _client
 

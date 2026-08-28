@@ -1,8 +1,3 @@
-import os
-print("=== DEBUG ENTORNO EN RENDER ===")
-print("Todas las variables que recibe Python:", list(os.environ.keys()))
-print("¿Tiene CRONOMETER_USERNAME?:", "CRONOMETER_USERNAME" in os.environ)
-print("=================================")
 """MCP server for Cronometer nutrition data via the mobile REST API."""
 
 import json
@@ -37,9 +32,13 @@ _client: CronometerClient | None = None
 def _get_client() -> CronometerClient:
     global _client
     if _client is None:
-        username = os.getenv('CRONOMETER_USERNAME') or 'angel@famaagency.es'
-        password = os.getenv('CRONOMETER_PASSWORD') or '*Ab87176129!'
-        logger.info(f"Cronometer auth - user: {username is not None}, pass: {password is not None}")
+        username = os.getenv('CRONOMETER_USERNAME') or os.getenv('CHRONOMETER_USERNAME')
+        password = os.getenv('CRONOMETER_PASSWORD') or os.getenv('CHRONOMETER_PASSWORD')
+
+        if not username or not password:
+            logger.error(f"Faltan credenciales: USERNAME={bool(username)}, PASSWORD={bool(password)}")
+
+        logger.info(f"Cronometer auth - user cargado: {bool(username)}, pass cargado: {bool(password)}")
         _client = CronometerClient(username=username, password=password)
     return _client
 
@@ -93,34 +92,7 @@ def _err(e: Exception) -> str:
     }
 )
 def get_food_log(date: str | None = None) -> str:
-    """Get all diary entries for a given date.
-
-    Returns every food entry logged for the day, including food names,
-    amounts, meal groups, and nutrient data.
-
-    Also returns a top-level energy_summary field with pre-computed
-    values most relevant to the user:
-
-      - total_target_kcal: daily calorie target dynamically adjusted
-        for expenditure and weight goal (equivalent to Cronometer's
-        "Total Target" in the Energy Summary screen)
-      - consumed_kcal: total calories consumed
-      - remaining_kcal: calories remaining to stay on target
-        (total_target_kcal - consumed_kcal). Always report this
-        when summarizing the user's day. Prefer this over manually
-        deriving values from the burn breakdown fields.
-
-    Also returns a nutrition_summary field with consumed totals for every
-    nutrient the user tracks in Cronometer (macros plus any tracked
-    micronutrients such as saturated fat, cholesterol, or omega-3/6):
-
-      - macros: flat macro totals (energy, protein, carbs, net_carbs, fat,
-        fiber, alcohol)
-      - nutrients: the full list of tracked nutrients with amounts and units
-
-    Args:
-        date: Date as YYYY-MM-DD (defaults to today).
-    """
+    """Get all diary entries for a given date."""
     try:
         client = _get_client()
         day = _parse_date(date)
@@ -172,20 +144,7 @@ def add_food_entry(
     translation_id: int = 0,
     diary_group: str = "auto",
 ) -> str:
-    """Add a food entry to the Cronometer diary.
-
-    Use search_foods to find food_id and measure_id, then
-    get_food_details to confirm serving sizes and gram weights.
-
-    Args:
-        food_id: Numeric food ID from search_foods results.
-        measure_id: Measure/unit ID from get_food_details.
-        grams: Weight of the serving in grams.
-        date: Date to log as YYYY-MM-DD (defaults to today).
-        translation_id: Translation ID from search results (usually 0).
-        diary_group: Meal slot -- one of "auto", "breakfast", "lunch",
-                     "dinner", "snacks" (case-insensitive, default "auto").
-    """
+    """Add a food entry to the Cronometer diary."""
     try:
         group_map = {
             "auto": 0,
@@ -236,14 +195,7 @@ def remove_food_entry(
     entry_ids: list[str],
     date: str | None = None,
 ) -> str:
-    """Remove one or more food entries from the Cronometer diary.
-
-    Use get_food_log to find entry IDs.
-
-    Args:
-        entry_ids: List of serving/entry IDs to remove.
-        date: Date the entries belong to as YYYY-MM-DD (defaults to today).
-    """
+    """Remove one or more food entries from the Cronometer diary."""
     try:
         client = _get_client()
         day = _parse_date(date)
@@ -273,12 +225,7 @@ def remove_food_entry(
     }
 )
 def mark_day_complete(date: str, complete: bool = True) -> str:
-    """Mark a diary day as complete or incomplete.
-
-    Args:
-        date: Date to mark as YYYY-MM-DD.
-        complete: True to mark complete, False for incomplete.
-    """
+    """Mark a diary day as complete or incomplete."""
     try:
         client = _get_client()
         day = _parse_date(date)
@@ -304,13 +251,7 @@ def mark_day_complete(date: str, complete: bool = True) -> str:
     }
 )
 def copy_day(date: str | None = None) -> str:
-    """Copy all diary entries from the previous day to the given date.
-
-    Additive -- does not remove existing entries on the destination date.
-
-    Args:
-        date: Destination date as YYYY-MM-DD (defaults to today).
-    """
+    """Copy all diary entries from the previous day to the given date."""
     try:
         client = _get_client()
         day = _parse_date(date)
@@ -339,23 +280,7 @@ def copy_day(date: str | None = None) -> str:
     }
 )
 def get_daily_nutrition(date: str | None = None) -> str:
-    """Get daily nutrition summary with consumed macro and micronutrient totals.
-
-    Returns the amounts actually consumed for the day, covering every nutrient
-    the user tracks in Cronometer (i.e. has a target set for). The response has:
-
-      - summary: flat macro totals (energy, protein, carbs, net_carbs, fat,
-        fiber, alcohol). A value is null if that macro isn't tracked.
-      - nutrients: the full list of tracked nutrients, each with id, name,
-        amount, unit, category, and confidence.
-
-    A nutrient only appears if it's tracked in Cronometer. To surface e.g.
-    saturated fat, cholesterol, or trans fat, set a target for it in Cronometer
-    and it will flow through automatically.
-
-    Args:
-        date: Date as YYYY-MM-DD (defaults to today).
-    """
+    """Get daily nutrition summary with consumed macro and micronutrient totals."""
     try:
         client = _get_client()
         day = _parse_date(date)
@@ -380,19 +305,7 @@ def get_daily_nutrition(date: str | None = None) -> str:
     }
 )
 def get_nutrition_scores(date: str | None = None) -> str:
-    """Get nutrition scores with per-nutrient consumed amounts and category grades.
-
-    Returns category scores (All Targets, Vitamins, Minerals, Electrolytes,
-    Antioxidants, Immune Support, Metabolism, Bone Health) with the actual
-    consumed amount and confidence level for each tracked nutrient.
-
-    This is the richest nutrition endpoint -- use it when you need to know
-    both how much of each nutrient was consumed AND how close each is to
-    the target.
-
-    Args:
-        date: Date as YYYY-MM-DD (defaults to today).
-    """
+    """Get nutrition scores with per-nutrient consumed amounts and category grades."""
     try:
         client = _get_client()
         day = _parse_date(date)
@@ -421,20 +334,11 @@ def get_nutrition_scores(date: str | None = None) -> str:
     }
 )
 def search_foods(query: str) -> str:
-    """Search Cronometer's food database by name.
-
-    Returns matching foods with their IDs and source information.
-    Use the food_id and measure_id from results with add_food_entry,
-    or pass food_id to get_food_details for full nutrition info.
-
-    Args:
-        query: Food name or keyword (e.g. "eggs", "chicken breast").
-    """
+    """Search Cronometer's food database by name."""
     try:
         client = _get_client()
         foods = client.search_food(query)
 
-        # Slim down results to the most useful fields
         results = []
         for f in foods:
             results.append(
@@ -469,19 +373,11 @@ def search_foods(query: str) -> str:
     }
 )
 def get_food_details(food_id: int) -> str:
-    """Get detailed food information including nutrition and serving sizes.
-
-    Use this after search_foods to get the full nutrient profile and
-    available measure_ids needed for add_food_entry.
-
-    Args:
-        food_id: Food ID from search_foods results.
-    """
+    """Get detailed food information including nutrition and serving sizes."""
     try:
         client = _get_client()
         data = client.get_food(food_id)
 
-        # Extract measures for easy reference
         measures = []
         for m in data.get("measures", []):
             measures.append(
@@ -531,24 +427,7 @@ def add_custom_food(
     serving_name: str = "1 serving",
     serving_grams: float = 100.0,
 ) -> str:
-    """Create a custom food in Cronometer with specified nutrition.
-
-    Nutrient amounts should be for the full serving size specified.
-    After creation, use the returned food_id with add_food_entry to log it.
-
-    Args:
-        name: Food name.
-        calories: Calories per serving (kcal).
-        protein_g: Protein per serving (g).
-        fat_g: Fat per serving (g).
-        carbs_g: Carbs per serving (g).
-        fiber_g: Fiber per serving (g, default 0).
-        sugar_g: Sugar per serving (g, default 0).
-        sodium_mg: Sodium per serving (mg, default 0).
-        saturated_fat_g: Saturated fat per serving (g, default 0).
-        serving_name: Name for the serving size (default "1 serving").
-        serving_grams: Weight of one serving in grams (default 100).
-    """
+    """Create a custom food in Cronometer with specified nutrition."""
     try:
         client = _get_client()
         result = client.create_custom_food(
@@ -565,7 +444,6 @@ def add_custom_food(
             serving_grams=serving_grams,
         )
 
-        # Fetch back to get the server-assigned measure_id
         food_data = client.get_food(result["food_id"])
         result["measure_id"] = food_data.get("defaultMeasureId")
 
@@ -595,11 +473,7 @@ def add_custom_food(
     }
 )
 def get_macro_targets() -> str:
-    """Get current macro targets including weekly schedule and templates.
-
-    Returns the weekly macro schedule (which template applies to each day)
-    and all saved macro target templates with their values.
-    """
+    """Get current macro targets including weekly schedule and templates."""
     try:
         client = _get_client()
         schedules = client.get_macro_schedules()
@@ -631,15 +505,7 @@ def get_fasting_history(
     start_date: str | None = None,
     end_date: str | None = None,
 ) -> str:
-    """Get fasting history from Cronometer.
-
-    Returns fasts within the date range including status, timestamps,
-    and duration.
-
-    Args:
-        start_date: Start date as YYYY-MM-DD (defaults to 30 days ago).
-        end_date: End date as YYYY-MM-DD (defaults to today).
-    """
+    """Get fasting history from Cronometer."""
     try:
         client = _get_client()
         start = _parse_date(start_date)
@@ -665,11 +531,7 @@ def get_fasting_history(
     }
 )
 def get_fasting_stats() -> str:
-    """Get aggregate fasting statistics.
-
-    Returns total fasting hours, longest fast, average fast duration,
-    and completed fast count.
-    """
+    """Get aggregate fasting statistics."""
     try:
         client = _get_client()
         data = client.get_fasting_stats()
@@ -692,18 +554,11 @@ def get_fasting_stats() -> str:
     }
 )
 def list_biometrics() -> str:
-    """List the biometric metrics tracked in Cronometer.
-
-    Returns every metric type the account can record (Weight, Body Fat,
-    Heart Rate, Blood Glucose, Waist Size, Sleep, blood panels, body
-    measurements, etc.). Use the metric_id and a unit_id from the results
-    with get_biometrics.
-    """
+    """List the biometric metrics tracked in Cronometer."""
     try:
         client = _get_client()
         metrics = client.get_metrics()
 
-        # Slim down results to the fields needed to call get_biometrics
         results = []
         for m in metrics:
             results.append(
@@ -736,20 +591,7 @@ def get_biometrics(
     start_date: str | None = None,
     end_date: str | None = None,
 ) -> str:
-    """Get a biometric time series such as weight or body fat from Cronometer.
-
-    Returns the recorded values over the date range as a list of
-    {day, value} points.
-
-    Use list_biometrics to find metric_id and unit_id (e.g. Weight is
-    metric_id 1, with unit_id 1 for kg or 2 for lbs).
-
-    Args:
-        metric_id: Numeric metric ID from list_biometrics.
-        unit_id: Numeric unit ID from the metric's units in list_biometrics.
-        start_date: Start date as YYYY-MM-DD (defaults to 30 days ago).
-        end_date: End date as YYYY-MM-DD (defaults to today).
-    """
+    """Get a biometric time series such as weight or body fat from Cronometer."""
     try:
         client = _get_client()
         data = client.get_biometrics(
@@ -787,27 +629,7 @@ def date_module_today() -> date:
 
 
 class OAuthAuthorizationMiddleware:
-    """ASGI middleware implementing OAuth 2.1 authorization code flow with PKCE.
-
-    This is a minimal single-user OAuth server that satisfies Claude.ai's
-    MCP connector requirements. It implements:
-
-    - GET /.well-known/oauth-authorization-server → server metadata (RFC 8414)
-    - GET /.well-known/oauth-protected-resource → resource metadata
-    - GET /authorize → authorization page (user clicks to approve)
-    - POST /token → authorization code → access token exchange (with PKCE)
-    - Bearer token validation on all other HTTP requests
-
-    Auth codes are single-use and short-lived (in-memory, lost on restart).
-    Since this is a single-user server, the "authorization" is just confirming
-    you're the server owner.
-
-    Env vars:
-    - MCP_OAUTH_CLIENT_ID: Expected client_id from Claude.ai
-    - MCP_OAUTH_CLIENT_SECRET: Expected client_secret from Claude.ai
-    - MCP_AUTH_TOKEN: The access token issued and validated
-    - MCP_BASE_URL: Public base URL (for metadata endpoints)
-    """
+    """ASGI middleware implementing OAuth 2.1 authorization code flow with PKCE."""
 
     def __init__(
         self,
@@ -823,7 +645,6 @@ class OAuthAuthorizationMiddleware:
         self.client_secret = client_secret
         self.access_token = access_token
         self.base_url = base_url.rstrip("/")
-        # In-memory store for pending auth codes: code -> {code_challenge, redirect_uri, state}
         self._pending_codes: dict[str, dict] = {}
 
     async def __call__(self, scope, receive, send):
@@ -834,7 +655,6 @@ class OAuthAuthorizationMiddleware:
         path = scope.get("path", "")
         method = scope.get("method", "GET")
 
-        # OAuth metadata discovery (RFC 8414)
         if path == "/.well-known/oauth-authorization-server" and method == "GET":
             from starlette.responses import JSONResponse
 
@@ -858,7 +678,6 @@ class OAuthAuthorizationMiddleware:
             await response(scope, receive, send)
             return
 
-        # OAuth Protected Resource metadata
         if path == "/.well-known/oauth-protected-resource" and method == "GET":
             from starlette.responses import JSONResponse
 
@@ -872,40 +691,33 @@ class OAuthAuthorizationMiddleware:
             await response(scope, receive, send)
             return
 
-        # Dynamic client registration (stub -- just echoes back the client_id)
         if path == "/register" and method == "POST":
             await self._handle_register(scope, receive, send)
             return
 
-        # Authorization endpoint
         if path == "/authorize" and method == "GET":
             await self._handle_authorize(scope, receive, send)
             return
 
-        # Authorize form submission
         if path == "/authorize" and method == "POST":
             await self._handle_authorize_submit(scope, receive, send)
             return
 
-        # Token endpoint
         if path == "/token" and method == "POST":
             await self._handle_token(scope, receive, send)
             return
 
-        # Favicon (don't 401 on this during authorize page load)
         if path == "/favicon.ico":
             from starlette.responses import Response
 
             await Response(status_code=404)(scope, receive, send)
             return
 
-        # All other requests: validate bearer token
         headers = dict(scope.get("headers", []))
         auth_value = headers.get(b"authorization", b"").decode()
         if auth_value != f"Bearer {self.access_token}":
             from starlette.responses import Response
 
-            # Return 401 with WWW-Authenticate header per MCP spec
             response = Response(
                 content='{"error": "unauthorized"}',
                 status_code=401,
@@ -920,11 +732,6 @@ class OAuthAuthorizationMiddleware:
         await self.app(scope, receive, send)
 
     async def _handle_register(self, scope, receive, send):
-        """Handle POST /register (OAuth 2.0 Dynamic Client Registration).
-
-        Minimal implementation that accepts any registration and returns
-        the provided client_name with pre-configured credentials.
-        """
         from starlette.responses import JSONResponse
 
         body = await self._read_body(receive)
@@ -950,7 +757,6 @@ class OAuthAuthorizationMiddleware:
         await response(scope, receive, send)
 
     async def _handle_authorize(self, scope, receive, send):
-        """Handle GET /authorize -- show a simple approval page."""
         from starlette.responses import HTMLResponse
         from urllib.parse import parse_qs
 
@@ -971,7 +777,6 @@ class OAuthAuthorizationMiddleware:
             await response(scope, receive, send)
             return
 
-        # Render a simple approval page
         html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -1007,7 +812,6 @@ class OAuthAuthorizationMiddleware:
         await response(scope, receive, send)
 
     async def _handle_authorize_submit(self, scope, receive, send):
-        """Handle POST /authorize -- user approved, generate code and redirect."""
         from starlette.responses import RedirectResponse
         from urllib.parse import parse_qs, urlencode
         import secrets
@@ -1027,7 +831,6 @@ class OAuthAuthorizationMiddleware:
             await response(scope, receive, send)
             return
 
-        # Generate a one-time auth code
         code = secrets.token_urlsafe(32)
         self._pending_codes[code] = {
             "code_challenge": code_challenge,
@@ -1035,7 +838,6 @@ class OAuthAuthorizationMiddleware:
             "redirect_uri": redirect_uri,
         }
 
-        # Redirect back to Claude.ai with the code
         callback_params = {"code": code}
         if state:
             callback_params["state"] = state
@@ -1046,7 +848,6 @@ class OAuthAuthorizationMiddleware:
         await response(scope, receive, send)
 
     async def _handle_token(self, scope, receive, send):
-        """Handle POST /token (authorization code exchange with PKCE)."""
         from starlette.responses import JSONResponse
         from urllib.parse import parse_qs
         import hashlib
@@ -1076,14 +877,12 @@ class OAuthAuthorizationMiddleware:
             await response(scope, receive, send)
             return
 
-        # Look up and consume the auth code (single-use)
         pending = self._pending_codes.pop(code, None)
         if pending is None:
             response = JSONResponse({"error": "invalid_grant"}, status_code=400)
             await response(scope, receive, send)
             return
 
-        # Validate PKCE: S256(code_verifier) must match code_challenge
         code_challenge = pending["code_challenge"]
         digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
         computed_challenge = (
@@ -1101,7 +900,6 @@ class OAuthAuthorizationMiddleware:
             await response(scope, receive, send)
             return
 
-        # Issue access token
         response = JSONResponse(
             {
                 "access_token": self.access_token,
@@ -1113,7 +911,6 @@ class OAuthAuthorizationMiddleware:
 
     @staticmethod
     async def _read_body(receive) -> bytes:
-        """Read the full request body from ASGI receive."""
         body = b""
         while True:
             message = await receive()
@@ -1129,15 +926,7 @@ class OAuthAuthorizationMiddleware:
 
 
 def main():
-    # Load .env for local development. No-op if the file is missing.
-    # override=False keeps real environment variables (Docker, systemd,
-    # MCP client `env` blocks, etc.) authoritative over .env.
-    from dotenv import find_dotenv, load_dotenv
-
     from dotenv import load_dotenv
-
-# En Docker, load_dotenv() sin argumentos lee las env vars del sistema
-
 
     load_dotenv(override=False)
 
@@ -1157,7 +946,6 @@ def main():
         else:
             app = mcp.streamable_http_app()
 
-        # OAuth config for remote transports
         client_id = os.getenv("MCP_OAUTH_CLIENT_ID", "")
         client_secret = os.getenv("MCP_OAUTH_CLIENT_SECRET", "")
         access_token = os.getenv("MCP_AUTH_TOKEN")

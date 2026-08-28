@@ -32,16 +32,9 @@ _client: CronometerClient | None = None
 def _get_client() -> CronometerClient:
     global _client
     if _client is None:
-        username = os.getenv('CRONOMETER_USERNAME') or os.getenv('CHRONOMETER_USERNAME')
-        password = os.getenv('CRONOMETER_PASSWORD') or os.getenv('CHRONOMETER_PASSWORD')
-
-        if not username or not password:
-            logger.error(f"Faltan credenciales: USERNAME={bool(username)}, PASSWORD={bool(password)}")
-
-        logger.info(f"Cronometer auth - user cargado: {bool(username)}, pass cargado: {bool(password)}")
-        _client = CronometerClient(username=username, password=password)
+        # CronometerClient lee automáticamente de os.environ dentro de su __init__
+        _client = CronometerClient()
     return _client
-
 
 def _parse_date(d: str | None) -> date | None:
     if d is None:

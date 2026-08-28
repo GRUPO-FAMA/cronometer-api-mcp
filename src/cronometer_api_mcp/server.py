@@ -1,3 +1,8 @@
+import os
+print("=== DEBUG ENTORNO EN RENDER ===")
+print("Todas las variables que recibe Python:", list(os.environ.keys()))
+print("¿Tiene CRONOMETER_USERNAME?:", "CRONOMETER_USERNAME" in os.environ)
+print("=================================")
 """MCP server for Cronometer nutrition data via the mobile REST API."""
 
 import json
